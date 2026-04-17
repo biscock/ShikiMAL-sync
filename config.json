@@ -1,0 +1,15 @@
+{
+  "app_name": "ShikiMAL Sync",
+  "poll_interval": "30s",
+  "data_dir": "data",
+  "shikimori": {
+    "client_id": "PASTE_SHIKIMORI_CLIENT_ID_HERE",
+    "client_secret": "PASTE_SHIKIMORI_CLIENT_SECRET_HERE",
+    "redirect_url": "http://127.0.0.1:18080/callback/shiki"
+  },
+  "myanimelist": {
+    "client_id": "PASTE_MAL_CLIENT_ID_HERE",
+    "client_secret": "PASTE_MAL_CLIENT_SECRET_HERE",
+    "redirect_url": "http://127.0.0.1:18080/callback/mal"
+  }
+}
