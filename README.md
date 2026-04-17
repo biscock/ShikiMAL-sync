@@ -48,7 +48,7 @@ That means it avoids mass overwrites on the first start. This is intentional: a 
 
 ## Config
 
-The app reads settings from a JSON file 'config.json'.
+The app reads settings from a JSON file `config.json`.
 
 ## OAuth setup
 
