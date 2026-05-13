@@ -182,7 +182,14 @@ func (c *Client) refreshToken(ctx context.Context, refreshToken string) (*model.
 		form.Set("client_secret", c.cfg.ClientSecret)
 	}
 	form.Set("refresh_token", refreshToken)
-	return c.exchangeToken(ctx, form)
+	token, err := c.exchangeToken(ctx, form)
+	if err != nil {
+		return nil, err
+	}
+	if token.RefreshToken == "" {
+		token.RefreshToken = refreshToken
+	}
+	return token, nil
 }
 
 func (c *Client) exchangeToken(ctx context.Context, form url.Values) (*model.Token, error) {
@@ -209,9 +216,9 @@ func (c *Client) exchangeToken(ctx context.Context, form url.Values) (*model.Tok
 		return nil, fmt.Errorf("decode MAL token response: %w", err)
 	}
 
-	expiresAt := time.Now().UTC()
+	expiresAt := time.Now().UTC().Add(time.Hour)
 	if tr.ExpiresIn > 0 {
-		expiresAt = expiresAt.Add(time.Duration(tr.ExpiresIn) * time.Second)
+		expiresAt = time.Now().UTC().Add(time.Duration(tr.ExpiresIn) * time.Second)
 	}
 
 	return &model.Token{
@@ -264,7 +271,11 @@ func (c *Client) doAuthorized(req *http.Request) (*http.Response, error) {
 	retry.Header.Set("Authorization", "Bearer "+refreshed.AccessToken)
 	retry.Header.Set("X-MAL-CLIENT-ID", c.cfg.ClientID)
 	retry.Header.Set("Accept", "application/json")
-	return c.httpClient.Do(retry)
+	retryResp, err := c.httpClient.Do(retry)
+	if err != nil {
+		return nil, fmt.Errorf("request MAL API: %w", err)
+	}
+	return retryResp, nil
 }
 
 func (c *Client) ensureFreshToken(ctx context.Context) (*model.Token, error) {
@@ -324,7 +335,7 @@ func mapStatus(entry model.Entry) (string, error) {
 		switch entry.Status {
 		case "planned":
 			return "plan_to_read", nil
-		case "watching", "rewatching":
+		case "reading", "rereading", "watching", "rewatching":
 			return "reading", nil
 		case "completed":
 			return "completed", nil

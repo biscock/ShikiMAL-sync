@@ -33,12 +33,21 @@ func WriteJSONAtomic(path string, value any) error {
 		return fmt.Errorf("encode json: %w", err)
 	}
 
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("sync temp file: %w", err)
+	}
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("rename temp file: %w", err)
+	}
+
+	if dir, err := os.Open(filepath.Dir(path)); err == nil {
+		_ = dir.Sync()
+		dir.Close()
 	}
 	return nil
 }

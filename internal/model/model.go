@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 type MediaType string
 
@@ -20,7 +23,7 @@ type Entry struct {
 }
 
 func (e Entry) Key() string {
-	return string(e.MediaType) + ":" + itoa(e.ID)
+	return string(e.MediaType) + ":" + strconv.Itoa(e.ID)
 }
 
 type Snapshot struct {
@@ -36,23 +39,4 @@ type Token struct {
 	ExpiresAt    time.Time `json:"expires_at,omitempty"`
 }
 
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
 
-	sign := ""
-	if v < 0 {
-		sign = "-"
-		v = -v
-	}
-
-	buf := [20]byte{}
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return sign + string(buf[i:])
-}

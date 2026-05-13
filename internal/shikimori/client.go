@@ -111,39 +111,51 @@ func (c *Client) CurrentUserID(ctx context.Context) (int, error) {
 }
 
 func (c *Client) ListEntries(ctx context.Context, userID int, mediaType model.MediaType) ([]model.Entry, error) {
-	query := url.Values{}
-	query.Set("user_id", fmt.Sprintf("%d", userID))
+	var targetType string
 	switch mediaType {
 	case model.MediaTypeAnime:
-		query.Set("target_type", "Anime")
+		targetType = "Anime"
 	case model.MediaTypeManga:
-		query.Set("target_type", "Manga")
+		targetType = "Manga"
 	default:
 		return nil, fmt.Errorf("unsupported media type: %s", mediaType)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBase+"/v2/user_rates?"+query.Encode(), nil)
-	if err != nil {
-		return nil, err
-	}
+	const pageLimit = 1000
+	entries := make([]model.Entry, 0, pageLimit)
 
-	var payload []userRateResponse
-	if err := c.doAuthorizedJSON(req, &payload); err != nil {
-		return nil, err
-	}
+	for page := 1; ; page++ {
+		query := url.Values{}
+		query.Set("user_id", fmt.Sprintf("%d", userID))
+		query.Set("target_type", targetType)
+		query.Set("page", fmt.Sprintf("%d", page))
+		query.Set("limit", fmt.Sprintf("%d", pageLimit))
 
-	entries := make([]model.Entry, 0, len(payload))
-	for _, item := range payload {
-		entry := model.Entry{
-			ID:        item.TargetID,
-			MediaType: mediaType,
-			Status:    item.Status,
-			Score:     item.Score,
-			Episodes:  item.Episodes,
-			Chapters:  item.Chapters,
-			Volumes:   item.Volumes,
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBase+"/v2/user_rates?"+query.Encode(), nil)
+		if err != nil {
+			return nil, err
 		}
-		entries = append(entries, entry)
+
+		var payload []userRateResponse
+		if err := c.doAuthorizedJSON(req, &payload); err != nil {
+			return nil, err
+		}
+
+		for _, item := range payload {
+			entries = append(entries, model.Entry{
+				ID:        item.TargetID,
+				MediaType: mediaType,
+				Status:    item.Status,
+				Score:     item.Score,
+				Episodes:  item.Episodes,
+				Chapters:  item.Chapters,
+				Volumes:   item.Volumes,
+			})
+		}
+
+		if len(payload) < pageLimit {
+			break
+		}
 	}
 	return entries, nil
 }
@@ -166,7 +178,14 @@ func (c *Client) refreshToken(ctx context.Context, refreshToken string) (*model.
 	form.Set("client_secret", c.cfg.ClientSecret)
 	form.Set("refresh_token", refreshToken)
 
-	return c.exchangeToken(ctx, form)
+	token, err := c.exchangeToken(ctx, form)
+	if err != nil {
+		return nil, err
+	}
+	if token.RefreshToken == "" {
+		token.RefreshToken = refreshToken
+	}
+	return token, nil
 }
 
 func (c *Client) exchangeToken(ctx context.Context, form url.Values) (*model.Token, error) {
@@ -267,7 +286,11 @@ func (c *Client) doAuthorized(req *http.Request) (*http.Response, error) {
 	retry.Header.Set("Authorization", "Bearer "+refreshed.AccessToken)
 	retry.Header.Set("User-Agent", c.appName)
 	retry.Header.Set("Accept", "application/json")
-	return c.httpClient.Do(retry)
+	retryResp, err := c.httpClient.Do(retry)
+	if err != nil {
+		return nil, fmt.Errorf("request shikimori: %w", err)
+	}
+	return retryResp, nil
 }
 
 func (c *Client) ensureFreshToken(ctx context.Context) (*model.Token, error) {

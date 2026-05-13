@@ -107,7 +107,7 @@ func runLoop(ctx context.Context, cfg *config.Config, engine *syncer.Engine) err
 }
 
 func logCycleResult(prefix string, result syncer.CycleResult) {
-	fmt.Printf("%s finished: baseline=%d updated=%d deleted=%d\n", prefix, result.Baselined, result.Updated, result.Deleted)
+	fmt.Printf("%s finished: baseline=%d updated=%d deleted=%d failed=%d\n", prefix, result.Baselined, result.Updated, result.Deleted, result.Failed)
 }
 
 func printUsage() {

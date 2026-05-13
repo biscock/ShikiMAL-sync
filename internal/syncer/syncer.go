@@ -40,6 +40,7 @@ type CycleResult struct {
 	Baselined int
 	Updated   int
 	Deleted   int
+	Failed    int
 }
 
 func NewEngine(shiki ShikimoriClient, mal MALClient, state StateStore) *Engine {
@@ -115,7 +116,12 @@ func (e *Engine) applyDiff(ctx context.Context, baseline, current *model.Snapsho
 		}
 
 		if err := e.mal.UpsertEntry(ctx, entry); err != nil {
-			return result, fmt.Errorf("sync entry %s: %w", key, err)
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			fmt.Printf("sync entry %s failed: %v\n", key, err)
+			result.Failed++
+			continue
 		}
 		baseline.Entries[key] = entry
 		baseline.CapturedAt = current.CapturedAt
@@ -134,7 +140,12 @@ func (e *Engine) applyDiff(ctx context.Context, baseline, current *model.Snapsho
 		}
 
 		if err := e.mal.DeleteEntry(ctx, oldEntry.MediaType, oldEntry.ID); err != nil {
-			return result, fmt.Errorf("delete entry %s: %w", key, err)
+			if ctx.Err() != nil {
+				return result, ctx.Err()
+			}
+			fmt.Printf("delete entry %s failed: %v\n", key, err)
+			result.Failed++
+			continue
 		}
 		delete(baseline.Entries, key)
 		baseline.CapturedAt = current.CapturedAt
